@@ -15,49 +15,36 @@ const gitlab = new Gitlab({
 app.use(cors());
 app.use(bodyParser.json());
 
-app.post('/generate-code', async (req, res) => {
-    const { prompt } = req.body;
+app.post('/generate-suggestions', async (req, res) => {
+    const { projectId, mergeRequestId } = req.body;
 
-    if (!prompt) {
-        return res.status(400).json({ error: 'Prompt is required' });
+    if (!projectId || !mergeRequestId) {
+        return res.status(400).json({ error: 'Project ID and Merge Request ID are required' });
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent([prompt]);
+        // Fetch the merge request details
+        const mergeRequest = await gitlab.MergeRequests.show(projectId, mergeRequestId);
+        const diff = await gitlab.MergeRequests.diff(projectId, mergeRequestId);
 
-        console.log('API Response:', JSON.stringify(result));
+        // Extract previous code from the diff
+        const previousCode = diff.map(file => file.diff).join('\n');
+
+        // Generate code suggestions based on previous code
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent([previousCode]);
 
         if (result.response && result.response.candidates && result.response.candidates.length > 0) {
             const generatedContent = result.response.candidates[0];
             const generatedText = generatedContent.content.parts[0].text;
 
-            const codeOnly = generatedText.split('**Explanation:**')[0].trim();
-            const cleanedCode = codeOnly.replace(/```python|```|```javascript/g, '').trim();
-
-            
-            const projectId = '871';
-            const branch = 'main'; 
-            const commitMessage = 'Add generated code';
-
-            await gitlab.Commits.create(projectId, {
-                branch,
-                commitMessage,
-                actions: [{
-                    action: 'create',
-                    filePath: 'generated_code.js', 
-                    content: cleanedCode,
-                }],
-            });
-            
-
-            return res.json({ code: cleanedCode });
+            return res.json({ suggestions: generatedText });
         }
 
         return res.status(500).json({ error: 'No valid candidates returned' });
     } catch (error) {
-        console.error('Error generating code:', error);
-        return res.status(500).json({ error: 'Failed to generate code' });
+        console.error('Error generating suggestions:', error);
+        return res.status(500).json({ error: 'Failed to generate suggestions' });
     }
 });
 
