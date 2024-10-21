@@ -16,6 +16,9 @@ const gitlab = new Gitlab({
 app.use(cors());
 app.use(bodyParser.json());
 
+app.get('/',(req,res) =>{
+    res.send('Hello, GitOps with GitLab and Generative AI!');
+})
 // Webhook endpoint for merge request events
 app.post('/webhook', async (req, res) => {
     const event = req.headers['x-gitlab-event'];
