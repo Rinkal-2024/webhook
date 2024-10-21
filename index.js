@@ -10,6 +10,7 @@ const PORT = 8000;
 const genAI = new GoogleGenerativeAI(process.env.API_KEY);
 const gitlab = new Gitlab({
     token: process.env.GITLAB_TOKEN,
+    host:'https://gitlab.websiteserverhost.net/'
 });
 
 app.use(cors());
@@ -29,10 +30,12 @@ app.post('/generate-suggestions', async (req, res) => {
     try {
         // Fetch the merge request details
         const mergeRequest = await gitlab.MergeRequests.show(projectId, mergeRequestId);
-        const diff = await gitlab.MergeRequests.diff(projectId, mergeRequestId);
-
-        // Extract previous code from the diff
-        const previousCode = diff.map(file => file.diff).join('\n');
+        
+        // Fetch the changes in the merge request
+        const changes = await gitlab.MergeRequests.changes(projectId, mergeRequestId);
+        
+        // Extract previous code from the changes
+        const previousCode = changes.changes.map(change => change.diff).join('\n');
 
         // Generate code suggestions based on previous code
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -52,6 +55,8 @@ app.post('/generate-suggestions', async (req, res) => {
     }
 });
 
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    
 });
