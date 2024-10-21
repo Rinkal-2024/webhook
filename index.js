@@ -15,6 +15,10 @@ const gitlab = new Gitlab({
 app.use(cors());
 app.use(bodyParser.json());
 
+app.get('/' ,(req,res)=>{
+    res.send('Welcome to the CodeGen Server!');
+})
+
 app.post('/generate-suggestions', async (req, res) => {
     const { projectId, mergeRequestId } = req.body;
 
